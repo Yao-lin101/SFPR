@@ -32,6 +32,7 @@ def api_root(request):
 urlpatterns = [
     path('', api_root, name='api-root'),
     path('', include(router.urls)),
-    path('auth/token/', users.TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    # JWT 认证
+    path('auth/token/', users.CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ] 

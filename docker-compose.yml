@@ -1,0 +1,120 @@
+services:
+  web:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: stillalive_web
+    restart: unless-stopped
+    command: gunicorn config.wsgi:application --config=/app/gunicorn.conf.py --worker-class=sync
+    volumes:
+      - .:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+      - ./logs:/app/logs
+    expose:
+      - 8000
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://redis:6379/1
+      - REDIS_HOST=redis
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DATABASE_URL=postgres://postgres:${DB_PASSWORD}@db:5432/${DB_NAME}
+      - CELERY_BROKER_URL=redis://redis:6379/2
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    depends_on:
+      - db
+      - redis
+    networks:
+      - stillalive_network
+
+  celery_worker:
+    build: .
+    container_name: stillalive_celery_worker
+    restart: unless-stopped
+    user: celery
+    command: celery -A config worker --loglevel=INFO
+    volumes:
+      - .:/app
+      - ./logs/celery:/app/logs/celery
+    env_file:
+      - .env
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.production
+      - DB_HOST=db
+      - REDIS_HOST=redis
+      - CELERY_BROKER_URL=redis://redis:6379/2
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    depends_on:
+      - redis
+      - db
+    networks:
+      - stillalive_network
+
+  celery_beat:
+    build: .
+    container_name: stillalive_celery_beat
+    restart: unless-stopped
+    user: celery
+    command: celery -A config beat --loglevel=INFO --schedule=/app/celerybeat-data/celerybeat-schedule
+    volumes:
+      - .:/app
+      - ./logs/celery:/app/logs/celery
+      - celerybeat_data:/app/celerybeat-data
+    env_file:
+      - .env
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.production
+      - DB_HOST=db
+      - REDIS_HOST=redis
+      - CELERY_BROKER_URL=redis://redis:6379/2
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    depends_on:
+      - redis
+      - db
+    networks:
+      - stillalive_network
+
+  db:
+    image: postgres:15-alpine
+    container_name: stillalive_db
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    networks:
+      - stillalive_network
+
+  redis:
+    image: redis:7.0-alpine
+    container_name: stillalive_redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - stillalive_network
+
+volumes:
+  postgres_data:
+    name: stillalive_postgres_data
+  redis_data:
+    name: stillalive_redis_data
+  static_volume:
+    name: stillalive_static_volume
+    external: true
+  media_volume:
+    name: stillalive_media_volume
+    external: true
+  celerybeat_data:
+    name: stillalive_celerybeat_data
+
+networks:
+  stillalive_network:
+    name: stillalive_network
+    external: true 

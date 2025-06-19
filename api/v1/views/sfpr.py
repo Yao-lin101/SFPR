@@ -1,29 +1,25 @@
 from django.db.models import Q
+import logging
 from rest_framework import viewsets, status, filters, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
-from apps.sfpr.models import Server, Partner
+from apps.sfpr.models import Partner
 from apps.sfpr.serializers import (
-    ServerSerializer, 
     PartnerCreateSerializer, 
     PartnerListSerializer, 
     PartnerDetailSerializer
 )
 from apps.sfpr.permissions import IsAuthenticatedForCreate
 
-
-class ServerViewSet(viewsets.ReadOnlyModelViewSet):
-    """服务器视图集，只读"""
-    queryset = Server.objects.all()
-    serializer_class = ServerSerializer
-    permission_classes = [permissions.AllowAny]
+# 获取logger
+logger = logging.getLogger(__name__)
 
 
 class PartnerViewSet(viewsets.ModelViewSet):
     """神人记录视图集"""
-    queryset = Partner.objects.filter(status='approved')
+    queryset = Partner.objects.all()  # 显示所有记录
     permission_classes = [IsAuthenticatedForCreate]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['server']
@@ -37,6 +33,24 @@ class PartnerViewSet(viewsets.ModelViewSet):
         elif self.action == 'retrieve':
             return PartnerDetailSerializer
         return PartnerListSerializer
+    
+    def create(self, request, *args, **kwargs):
+        """创建神人记录，添加详细日志"""
+        logger.info(f"接收到创建神人记录请求，数据: {request.data}")
+        
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            logger.error(f"数据验证失败: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            self.perform_create(serializer)
+            logger.info(f"神人记录创建成功: {serializer.data}")
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        except Exception as e:
+            logger.exception(f"创建神人记录时发生异常: {str(e)}")
+            return Response({"detail": f"创建失败: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -68,7 +82,7 @@ class PartnerViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(game_id__icontains=game_id)
         
         if server_id:
-            queryset = queryset.filter(server_id=server_id)
+            queryset = queryset.filter(server=server_id)
         
         page = self.paginate_queryset(queryset)
         if page is not None:

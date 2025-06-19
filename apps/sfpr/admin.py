@@ -1,17 +1,11 @@
 from django.contrib import admin
-from .models import Server, Partner
-
-
-@admin.register(Server)
-class ServerAdmin(admin.ModelAdmin):
-    list_display = ('name', 'region')
-    search_fields = ('name', 'region')
+from .models import Partner
 
 
 @admin.register(Partner)
 class PartnerAdmin(admin.ModelAdmin):
-    list_display = ('nickname', 'game_id', 'server', 'status', 'created_at', 'views_count')
-    list_filter = ('status', 'server', 'created_at')
+    list_display = ('nickname', 'game_id', 'server_name', 'status', 'created_at', 'views_count')
+    list_filter = ('status', 'created_at')
     search_fields = ('nickname', 'game_id', 'description')
     readonly_fields = ('id', 'created_at', 'updated_at', 'views_count')
     date_hierarchy = 'created_at'

@@ -133,10 +133,13 @@ class RecordViewSet(viewsets.ModelViewSet):
     ordering_fields = ['created_at']
     ordering = ['-created_at']
     
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='my-records')
     def my_records(self, request):
         """获取当前用户的投稿记录"""
+        logger.info(f"接收到获取投稿记录请求，用户: {request.user}")
+        
         if not request.user.is_authenticated:
+            logger.warning(f"未登录用户尝试访问投稿记录")
             return Response(
                 {"error": "未登录用户无法查看投稿记录"}, 
                 status=status.HTTP_401_UNAUTHORIZED
@@ -144,6 +147,7 @@ class RecordViewSet(viewsets.ModelViewSet):
         
         # 获取用户的所有投稿记录
         queryset = self.get_queryset().filter(submitter=request.user)
+        logger.info(f"用户 {request.user} 的投稿记录数量: {queryset.count()}")
         
         # 包含玩家信息
         queryset = queryset.select_related('player')

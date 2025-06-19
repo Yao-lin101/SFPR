@@ -1,9 +1,20 @@
 import uuid
+import os
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
+
+
+def record_image_path(instance, filename):
+    """生成神人事迹图片的存储路径"""
+    # 获取文件扩展名
+    ext = filename.split('.')[-1]
+    # 使用UUID作为文件名，避免文件名冲突
+    new_filename = f"{uuid.uuid4().hex}.{ext}"
+    # 按照玩家ID和记录ID组织目录结构
+    return f'records/{instance.player.id}/{instance.id}/{new_filename}'
 
 
 class Player(models.Model):
@@ -70,6 +81,11 @@ class Record(models.Model):
     description = models.TextField(_("神人事迹"))
     evidence = models.TextField(_("证据"), blank=True, help_text=_("可以是图片链接或描述"))
     
+    # 添加图片字段
+    image_1 = models.ImageField(_("图片1"), upload_to=record_image_path, blank=True, null=True)
+    image_2 = models.ImageField(_("图片2"), upload_to=record_image_path, blank=True, null=True)
+    image_3 = models.ImageField(_("图片3"), upload_to=record_image_path, blank=True, null=True)
+    
     submitter = models.ForeignKey(
         User, 
         on_delete=models.SET_NULL, 
@@ -95,3 +111,19 @@ class Record(models.Model):
     
     def __str__(self):
         return f"{self.player} - {self.created_at.strftime('%Y-%m-%d')}"
+    
+    def delete(self, *args, **kwargs):
+        """删除记录时同时删除关联的图片文件"""
+        # 删除图片文件
+        if self.image_1:
+            if os.path.isfile(self.image_1.path):
+                os.remove(self.image_1.path)
+        if self.image_2:
+            if os.path.isfile(self.image_2.path):
+                os.remove(self.image_2.path)
+        if self.image_3:
+            if os.path.isfile(self.image_3.path):
+                os.remove(self.image_3.path)
+        
+        # 调用父类的delete方法
+        super().delete(*args, **kwargs)

@@ -57,7 +57,7 @@ class PlayerViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         # 增加查看次数
         instance.increment_views()
-        serializer = self.get_serializer(instance)
+        serializer = self.get_serializer(instance, context={'request': request})
         return Response(serializer.data)
     
     @action(detail=False, methods=['get'])
@@ -116,8 +116,22 @@ class PlayerViewSet(viewsets.ModelViewSet):
                 submitter=request.user
             )
             
+            # 处理图片上传
+            image_1 = request.FILES.get('image_1')
+            image_2 = request.FILES.get('image_2')
+            image_3 = request.FILES.get('image_3')
+            
+            if image_1 or image_2 or image_3:
+                if image_1:
+                    record.image_1 = image_1
+                if image_2:
+                    record.image_2 = image_2
+                if image_3:
+                    record.image_3 = image_3
+                record.save()
+            
             logger.info(f"为玩家 {player.id} 添加神人事迹记录成功，记录ID: {record.id}")
-            return Response(RecordSerializer(record).data, status=status.HTTP_201_CREATED)
+            return Response(RecordSerializer(record, context={'request': request}).data, status=status.HTTP_201_CREATED)
         except Exception as e:
             logger.exception(f"添加神人事迹记录时发生异常: {str(e)}")
             return Response({"detail": f"添加失败: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -132,6 +146,13 @@ class RecordViewSet(viewsets.ModelViewSet):
     filterset_fields = ['player', 'status']
     ordering_fields = ['created_at']
     ordering = ['-created_at']
+    
+    def get_serializer_context(self):
+        """
+        添加request到序列化器上下文，用于生成完整的媒体URL
+        """
+        context = super().get_serializer_context()
+        return context
     
     @action(detail=False, methods=['get'], url_path='my-records')
     def my_records(self, request):

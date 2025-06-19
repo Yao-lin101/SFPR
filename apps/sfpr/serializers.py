@@ -1,6 +1,7 @@
 from rest_framework import serializers
 import logging
 from .models import Player, Record
+from django.conf import settings
 
 # 获取logger
 logger = logging.getLogger(__name__)
@@ -10,11 +11,24 @@ class RecordSerializer(serializers.ModelSerializer):
     """神人事迹记录序列化器"""
     submitter_username = serializers.CharField(source='submitter.username', read_only=True)
     player = serializers.SerializerMethodField()
+    image_1_url = serializers.SerializerMethodField()
+    image_2_url = serializers.SerializerMethodField()
+    image_3_url = serializers.SerializerMethodField()
     
     class Meta:
         model = Record
-        fields = ['id', 'description', 'evidence', 'submitter_username', 'created_at', 'status', 'player']
+        fields = [
+            'id', 'description', 'evidence', 'submitter_username', 
+            'created_at', 'status', 'player', 
+            'image_1', 'image_2', 'image_3',
+            'image_1_url', 'image_2_url', 'image_3_url'
+        ]
         read_only_fields = ['submitter_username', 'created_at', 'status']
+        extra_kwargs = {
+            'image_1': {'write_only': True},
+            'image_2': {'write_only': True},
+            'image_3': {'write_only': True},
+        }
     
     def get_player(self, obj):
         """返回玩家信息"""
@@ -25,6 +39,30 @@ class RecordSerializer(serializers.ModelSerializer):
             'server': obj.player.server,
             'server_name': obj.player.server_name,
         }
+    
+    def get_image_1_url(self, obj):
+        if obj.image_1:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image_1.url)
+            return obj.image_1.url
+        return None
+    
+    def get_image_2_url(self, obj):
+        if obj.image_2:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image_2.url)
+            return obj.image_2.url
+        return None
+    
+    def get_image_3_url(self, obj):
+        if obj.image_3:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image_3.url)
+            return obj.image_3.url
+        return None
 
 
 class PlayerListSerializer(serializers.ModelSerializer):
@@ -55,10 +93,13 @@ class PlayerCreateSerializer(serializers.ModelSerializer):
     """用于创建玩家的序列化器"""
     description = serializers.CharField(write_only=True, required=True)
     evidence = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    image_1 = serializers.ImageField(write_only=True, required=False)
+    image_2 = serializers.ImageField(write_only=True, required=False)
+    image_3 = serializers.ImageField(write_only=True, required=False)
     
     class Meta:
         model = Player
-        fields = ['nickname', 'game_id', 'server', 'description', 'evidence']
+        fields = ['nickname', 'game_id', 'server', 'description', 'evidence', 'image_1', 'image_2', 'image_3']
     
     def validate(self, attrs):
         """添加详细的验证逻辑和日志"""
@@ -91,6 +132,20 @@ class PlayerCreateSerializer(serializers.ModelSerializer):
             logger.error("神人事迹为空")
             raise serializers.ValidationError({"description": "神人事迹不能为空"})
         
+        # 验证图片
+        image_1 = attrs.get('image_1')
+        image_2 = attrs.get('image_2')
+        image_3 = attrs.get('image_3')
+        
+        # 检查图片大小
+        max_size = 5 * 1024 * 1024  # 5MB
+        if image_1 and image_1.size > max_size:
+            raise serializers.ValidationError({"image_1": "图片大小不能超过5MB"})
+        if image_2 and image_2.size > max_size:
+            raise serializers.ValidationError({"image_2": "图片大小不能超过5MB"})
+        if image_3 and image_3.size > max_size:
+            raise serializers.ValidationError({"image_3": "图片大小不能超过5MB"})
+        
         return attrs
     
     def create(self, validated_data):
@@ -98,6 +153,9 @@ class PlayerCreateSerializer(serializers.ModelSerializer):
         # 提取神人事迹相关字段
         description = validated_data.pop('description')
         evidence = validated_data.pop('evidence', '')
+        image_1 = validated_data.pop('image_1', None)
+        image_2 = validated_data.pop('image_2', None)
+        image_3 = validated_data.pop('image_3', None)
         
         # 获取当前用户
         user = self.context['request'].user
@@ -122,6 +180,18 @@ class PlayerCreateSerializer(serializers.ModelSerializer):
             evidence=evidence,
             submitter=user
         )
+        
+        # 保存图片
+        if image_1:
+            record.image_1 = image_1
+        if image_2:
+            record.image_2 = image_2
+        if image_3:
+            record.image_3 = image_3
+        
+        if image_1 or image_2 or image_3:
+            record.save()
+        
         logger.info(f"创建神人事迹记录，ID: {record.id}")
         
         return player 

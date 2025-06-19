@@ -12,7 +12,7 @@ from apps.sfpr.serializers import (
     PlayerDetailSerializer,
     RecordSerializer
 )
-from apps.sfpr.permissions import IsAuthenticatedForCreate
+from apps.sfpr.permissions import IsAuthenticatedForCreate, IsRecordOwnerOrReadOnly
 
 # 获取logger
 logger = logging.getLogger(__name__)
@@ -127,8 +127,31 @@ class RecordViewSet(viewsets.ModelViewSet):
     """神人事迹记录视图集"""
     queryset = Record.objects.all()
     serializer_class = RecordSerializer
-    permission_classes = [IsAuthenticatedForCreate]
+    permission_classes = [IsAuthenticatedForCreate, IsRecordOwnerOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['player', 'status']
     ordering_fields = ['created_at']
-    ordering = ['-created_at'] 
+    ordering = ['-created_at']
+    
+    @action(detail=False, methods=['get'])
+    def my_records(self, request):
+        """获取当前用户的投稿记录"""
+        if not request.user.is_authenticated:
+            return Response(
+                {"error": "未登录用户无法查看投稿记录"}, 
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        # 获取用户的所有投稿记录
+        queryset = self.get_queryset().filter(submitter=request.user)
+        
+        # 包含玩家信息
+        queryset = queryset.select_related('player')
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data) 

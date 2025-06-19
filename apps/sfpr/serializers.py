@@ -9,11 +9,22 @@ logger = logging.getLogger(__name__)
 class RecordSerializer(serializers.ModelSerializer):
     """神人事迹记录序列化器"""
     submitter_username = serializers.CharField(source='submitter.username', read_only=True)
+    player = serializers.SerializerMethodField()
     
     class Meta:
         model = Record
-        fields = ['id', 'description', 'evidence', 'submitter_username', 'created_at', 'status']
+        fields = ['id', 'description', 'evidence', 'submitter_username', 'created_at', 'status', 'player']
         read_only_fields = ['submitter_username', 'created_at', 'status']
+    
+    def get_player(self, obj):
+        """返回玩家信息"""
+        return {
+            'id': str(obj.player.id),
+            'nickname': obj.player.nickname,
+            'game_id': obj.player.game_id,
+            'server': obj.player.server,
+            'server_name': obj.player.server_name,
+        }
 
 
 class PlayerListSerializer(serializers.ModelSerializer):

@@ -216,7 +216,7 @@ class UserViewSet(viewsets.GenericViewSet):
         # 6. 发送邮件
         try:
             send_mail(
-                subject='StillAlive - 邮箱验证码',
+                subject='斗魂单排队友评鉴指南 - 邮箱验证码',
                 message=plain_message,
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[email],

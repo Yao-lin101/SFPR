@@ -1,22 +1,32 @@
 from django.contrib import admin
-from .models import Partner
+from .models import Player, Record
 
 
-@admin.register(Partner)
-class PartnerAdmin(admin.ModelAdmin):
-    list_display = ('nickname', 'game_id', 'server_name', 'status', 'created_at', 'views_count')
-    list_filter = ('status', 'created_at')
-    search_fields = ('nickname', 'game_id', 'description')
+@admin.register(Player)
+class PlayerAdmin(admin.ModelAdmin):
+    list_display = ('nickname', 'game_id', 'server_name', 'created_at', 'views_count')
+    list_filter = ('server', 'created_at')
+    search_fields = ('nickname', 'game_id')
     readonly_fields = ('id', 'created_at', 'updated_at', 'views_count')
     date_hierarchy = 'created_at'
-    actions = ['approve_partners', 'reject_partners']
+
+
+@admin.register(Record)
+class RecordAdmin(admin.ModelAdmin):
+    list_display = ('player', 'submitter', 'status', 'created_at')
+    list_filter = ('status', 'created_at')
+    search_fields = ('player__nickname', 'player__game_id', 'description')
+    readonly_fields = ('id', 'created_at', 'updated_at')
+    date_hierarchy = 'created_at'
+    actions = ['approve_records', 'reject_records']
     
-    def approve_partners(self, request, queryset):
+    def approve_records(self, request, queryset):
         updated = queryset.update(status='approved')
         self.message_user(request, f'{updated} 条记录已批准。')
-    approve_partners.short_description = "批准选中的神人记录"
+    approve_records.short_description = "批准选中的神人事迹"
     
-    def reject_partners(self, request, queryset):
+    def reject_records(self, request, queryset):
         updated = queryset.update(status='rejected')
         self.message_user(request, f'{updated} 条记录已拒绝。')
-    reject_partners.short_description = "拒绝选中的神人记录"
+    reject_records.short_description = "拒绝选中的神人事迹"
+

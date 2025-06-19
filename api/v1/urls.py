@@ -10,7 +10,8 @@ router = DefaultRouter()
 
 # 注册视图集
 router.register(r'users', users.UserViewSet, basename='user')
-router.register(r'partners', sfpr.PartnerViewSet, basename='partner')
+router.register(r'players', sfpr.PlayerViewSet, basename='player')
+router.register(r'records', sfpr.RecordViewSet, basename='record')
 
 
 @api_view(['GET'])
@@ -21,8 +22,9 @@ def api_root(request):
         'endpoints': {
             'users': '/api/v1/users/',
             'auth': '/api/v1/auth/token/',
-            'partners': '/api/v1/partners/',
-            'partners_search': '/api/v1/partners/search/',
+            'players': '/api/v1/players/',
+            'players_search': '/api/v1/players/search/',
+            'records': '/api/v1/records/',
         }
     })
 

@@ -6,49 +6,26 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 
-class Partner(models.Model):
-    """神人记录模型"""
-    STATUS_CHOICES = (
-        ('pending', _('待审核')),
-        ('approved', _('已发布')),
-        ('rejected', _('已拒绝')),
-    )
-    
+class Player(models.Model):
+    """玩家模型 - 存储唯一的玩家信息"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     nickname = models.CharField(_("昵称"), max_length=100, db_index=True)
     game_id = models.CharField(_("游戏ID"), max_length=50, db_index=True)
     server = models.IntegerField(_("服务器ID"))
     server_name = models.CharField(_("服务器名称"), max_length=50, blank=True)
-    description = models.TextField(_("神人事迹"))
-    evidence = models.TextField(_("证据"), blank=True, help_text=_("可以是图片链接或描述"))
-    
-    submitter = models.ForeignKey(
-        User, 
-        on_delete=models.SET_NULL, 
-        null=True,
-        related_name="submitted_partners",
-        verbose_name=_("提交者")
-    )
     
     created_at = models.DateTimeField(_("创建时间"), auto_now_add=True)
     updated_at = models.DateTimeField(_("更新时间"), auto_now=True)
-    
-    status = models.CharField(
-        _("状态"), 
-        max_length=20, 
-        choices=STATUS_CHOICES, 
-        default='approved'
-    )
-    
     views_count = models.PositiveIntegerField(_("查看次数"), default=0)
     
     class Meta:
-        verbose_name = _("神人记录")
-        verbose_name_plural = _("神人记录")
+        verbose_name = _("玩家")
+        verbose_name_plural = _("玩家")
         ordering = ["-created_at"]
+        # 添加唯一性约束
+        unique_together = ['nickname', 'game_id', 'server']
         indexes = [
             models.Index(fields=['nickname', 'game_id']),
-            models.Index(fields=['status']),
         ]
     
     def __str__(self):
@@ -73,3 +50,48 @@ class Partner(models.Model):
         if not self.server_name and self.server:
             self.server_name = SERVER_NAMES.get(self.server, f"未知服务器({self.server})")
         super().save(*args, **kwargs)
+
+
+class Record(models.Model):
+    """神人事迹记录模型 - 存储对玩家的评价记录"""
+    STATUS_CHOICES = (
+        ('pending', _('待审核')),
+        ('approved', _('已发布')),
+        ('rejected', _('已拒绝')),
+    )
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    player = models.ForeignKey(
+        Player,
+        on_delete=models.CASCADE,
+        related_name="records",
+        verbose_name=_("玩家")
+    )
+    description = models.TextField(_("神人事迹"))
+    evidence = models.TextField(_("证据"), blank=True, help_text=_("可以是图片链接或描述"))
+    
+    submitter = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True,
+        related_name="submitted_records",
+        verbose_name=_("提交者")
+    )
+    
+    created_at = models.DateTimeField(_("创建时间"), auto_now_add=True)
+    updated_at = models.DateTimeField(_("更新时间"), auto_now=True)
+    
+    status = models.CharField(
+        _("状态"), 
+        max_length=20, 
+        choices=STATUS_CHOICES, 
+        default='approved'
+    )
+    
+    class Meta:
+        verbose_name = _("神人事迹")
+        verbose_name_plural = _("神人事迹")
+        ordering = ["-created_at"]
+    
+    def __str__(self):
+        return f"{self.player} - {self.created_at.strftime('%Y-%m-%d')}"

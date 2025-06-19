@@ -1,21 +1,57 @@
 from rest_framework import serializers
 import logging
-from .models import Partner
+from .models import Player, Record
 
 # 获取logger
 logger = logging.getLogger(__name__)
 
 
-class PartnerCreateSerializer(serializers.ModelSerializer):
-    """用于创建神人记录的序列化器"""
+class RecordSerializer(serializers.ModelSerializer):
+    """神人事迹记录序列化器"""
+    submitter_username = serializers.CharField(source='submitter.username', read_only=True)
     
     class Meta:
-        model = Partner
+        model = Record
+        fields = ['id', 'description', 'evidence', 'submitter_username', 'created_at', 'status']
+        read_only_fields = ['submitter_username', 'created_at', 'status']
+
+
+class PlayerListSerializer(serializers.ModelSerializer):
+    """用于列表展示的玩家序列化器"""
+    records_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Player
+        fields = ['id', 'nickname', 'game_id', 'server_name', 'created_at', 'views_count', 'records_count']
+    
+    def get_records_count(self, obj):
+        return obj.records.filter(status='approved').count()
+
+
+class PlayerDetailSerializer(serializers.ModelSerializer):
+    """用于详情展示的玩家序列化器"""
+    records = RecordSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = Player
+        fields = [
+            'id', 'nickname', 'game_id', 'server', 'server_name',
+            'created_at', 'updated_at', 'views_count', 'records'
+        ]
+
+
+class PlayerCreateSerializer(serializers.ModelSerializer):
+    """用于创建玩家的序列化器"""
+    description = serializers.CharField(write_only=True, required=True)
+    evidence = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    
+    class Meta:
+        model = Player
         fields = ['nickname', 'game_id', 'server', 'description', 'evidence']
     
     def validate(self, attrs):
         """添加详细的验证逻辑和日志"""
-        logger.debug(f"验证创建神人记录数据: {attrs}")
+        logger.debug(f"验证创建玩家数据: {attrs}")
         
         # 验证昵称
         if not attrs.get('nickname'):
@@ -47,29 +83,34 @@ class PartnerCreateSerializer(serializers.ModelSerializer):
         return attrs
     
     def create(self, validated_data):
-        # 获取当前用户作为提交者
+        """创建玩家和神人事迹记录"""
+        # 提取神人事迹相关字段
+        description = validated_data.pop('description')
+        evidence = validated_data.pop('evidence', '')
+        
+        # 获取当前用户
         user = self.context['request'].user
-        validated_data['submitter'] = user
-        logger.info(f"创建神人记录，提交者: {user.username}, 数据: {validated_data}")
-        return super().create(validated_data)
-
-
-class PartnerListSerializer(serializers.ModelSerializer):
-    """用于列表展示的神人记录序列化器"""
-    
-    class Meta:
-        model = Partner
-        fields = ['id', 'nickname', 'game_id', 'server_name', 'created_at', 'views_count']
-
-
-class PartnerDetailSerializer(serializers.ModelSerializer):
-    """用于详情展示的神人记录序列化器"""
-    submitter_username = serializers.CharField(source='submitter.username', read_only=True)
-    
-    class Meta:
-        model = Partner
-        fields = [
-            'id', 'nickname', 'game_id', 'server_name', 'description', 
-            'evidence', 'submitter_username', 'created_at', 'updated_at', 
-            'views_count'
-        ] 
+        
+        # 检查玩家是否已存在
+        try:
+            player = Player.objects.get(
+                nickname=validated_data['nickname'],
+                game_id=validated_data['game_id'],
+                server=validated_data['server']
+            )
+            logger.info(f"玩家已存在，ID: {player.id}")
+        except Player.DoesNotExist:
+            # 创建新玩家
+            player = Player.objects.create(**validated_data)
+            logger.info(f"创建新玩家，ID: {player.id}")
+        
+        # 创建神人事迹记录
+        record = Record.objects.create(
+            player=player,
+            description=description,
+            evidence=evidence,
+            submitter=user
+        )
+        logger.info(f"创建神人事迹记录，ID: {record.id}")
+        
+        return player 

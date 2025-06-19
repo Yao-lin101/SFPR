@@ -36,8 +36,8 @@ class PlayerViewSet(viewsets.ModelViewSet):
         return PlayerListSerializer
     
     def create(self, request, *args, **kwargs):
-        """创建玩家和神人事迹记录，添加详细日志"""
-        logger.info(f"接收到创建玩家和神人事迹请求，数据: {request.data}")
+        """创建玩家"""
+        logger.info(f"接收到创建玩家请求，数据: {request.data}")
         
         serializer = self.get_serializer(data=request.data)
         if not serializer.is_valid():
@@ -46,11 +46,11 @@ class PlayerViewSet(viewsets.ModelViewSet):
         
         try:
             player = serializer.save()
-            logger.info(f"玩家和神人事迹创建成功，玩家ID: {player.id}")
+            logger.info(f"玩家创建成功，玩家ID: {player.id}")
             headers = self.get_success_headers(serializer.data)
             return Response(PlayerDetailSerializer(player).data, status=status.HTTP_201_CREATED, headers=headers)
         except Exception as e:
-            logger.exception(f"创建玩家和神人事迹时发生异常: {str(e)}")
+            logger.exception(f"创建玩家时发生异常: {str(e)}")
             return Response({"detail": f"创建失败: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     def retrieve(self, request, *args, **kwargs):
@@ -108,7 +108,7 @@ class PlayerViewSet(viewsets.ModelViewSet):
             )
         
         try:
-            # 创建新记录
+            # 创建新记录，但先不处理图片
             record = Record.objects.create(
                 player=player,
                 description=request.data.get('description'),
@@ -116,19 +116,28 @@ class PlayerViewSet(viewsets.ModelViewSet):
                 submitter=request.user
             )
             
-            # 处理图片上传
-            image_1 = request.FILES.get('image_1')
-            image_2 = request.FILES.get('image_2')
-            image_3 = request.FILES.get('image_3')
-            
-            if image_1 or image_2 or image_3:
+            # 确保记录已保存并有ID后，再处理图片
+            if record.pk:
+                # 处理图片上传
+                has_images = False
+                image_1 = request.FILES.get('image_1')
+                image_2 = request.FILES.get('image_2')
+                image_3 = request.FILES.get('image_3')
+                
                 if image_1:
                     record.image_1 = image_1
+                    has_images = True
                 if image_2:
                     record.image_2 = image_2
+                    has_images = True
                 if image_3:
                     record.image_3 = image_3
-                record.save()
+                    has_images = True
+                
+                # 如果有图片，保存记录
+                if has_images:
+                    record.save()
+                    logger.info(f"为记录 {record.id} 保存了图片")
             
             logger.info(f"为玩家 {player.id} 添加神人事迹记录成功，记录ID: {record.id}")
             return Response(RecordSerializer(record, context={'request': request}).data, status=status.HTTP_201_CREATED)

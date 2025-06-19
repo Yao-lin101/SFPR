@@ -3,6 +3,7 @@ import os
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 User = get_user_model()
 
@@ -10,11 +11,31 @@ User = get_user_model()
 def record_image_path(instance, filename):
     """生成神人事迹图片的存储路径"""
     # 获取文件扩展名
-    ext = filename.split('.')[-1]
-    # 使用UUID作为文件名，避免文件名冲突
-    new_filename = f"{uuid.uuid4().hex}.{ext}"
-    # 按照玩家ID和记录ID组织目录结构
-    return f'records/{instance.player.id}/{instance.id}/{new_filename}'
+    ext = filename.split('.')[-1].lower()
+    
+    # 验证扩展名，只允许常见图片格式
+    allowed_extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp']
+    if ext not in allowed_extensions:
+        ext = 'jpg'  # 默认使用jpg扩展名
+    
+    # 使用时间戳和UUID组合作为文件名，避免文件名冲突
+    timestamp = timezone.now().strftime('%Y%m%d%H%M%S')
+    new_filename = f"{timestamp}_{uuid.uuid4().hex[:10]}.{ext}"
+    
+    # 确保实例和玩家都存在
+    if not instance.pk:
+        # 如果记录还没有ID，使用临时目录
+        return f'records/temp/{new_filename}'
+    
+    # 获取玩家ID，确保安全
+    try:
+        player_id = str(instance.player.id) if instance.player and instance.player.id else 'unknown'
+    except Exception:
+        player_id = 'unknown'
+    
+    # 使用记录ID和玩家ID组织目录结构
+    record_id = str(instance.id) if instance.id else uuid.uuid4().hex
+    return f'records/{player_id}/{record_id}/{new_filename}'
 
 
 class Player(models.Model):

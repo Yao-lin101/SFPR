@@ -134,17 +134,53 @@ class Record(models.Model):
         return f"{self.player} - {self.created_at.strftime('%Y-%m-%d')}"
     
     def delete(self, *args, **kwargs):
-        """删除记录时同时删除关联的图片文件"""
-        # 删除图片文件
-        if self.image_1:
-            if os.path.isfile(self.image_1.path):
-                os.remove(self.image_1.path)
-        if self.image_2:
-            if os.path.isfile(self.image_2.path):
-                os.remove(self.image_2.path)
-        if self.image_3:
-            if os.path.isfile(self.image_3.path):
-                os.remove(self.image_3.path)
+        """删除记录时同时删除关联的图片文件和文件夹"""
+        import shutil
+        from django.conf import settings
         
-        # 调用父类的delete方法
-        super().delete(*args, **kwargs)
+        # 保存记录ID和玩家ID，用于后续删除文件夹
+        record_id = str(self.id)
+        player_id = str(self.player.id) if self.player else None
+        
+        # 删除单个图片文件
+        images_to_delete = []
+        if self.image_1:
+            images_to_delete.append(self.image_1.path)
+        if self.image_2:
+            images_to_delete.append(self.image_2.path)
+        if self.image_3:
+            images_to_delete.append(self.image_3.path)
+        
+        # 删除图片文件
+        for img_path in images_to_delete:
+            if os.path.isfile(img_path):
+                try:
+                    os.remove(img_path)
+                except Exception as e:
+                    print(f"删除图片文件失败: {img_path}, 错误: {str(e)}")
+        
+        # 调用父类的delete方法删除记录
+        result = super().delete(*args, **kwargs)
+        
+        # 删除记录后，尝试删除记录文件夹
+        if player_id and record_id:
+            record_dir = os.path.join(settings.MEDIA_ROOT, 'records', player_id, record_id)
+            if os.path.exists(record_dir):
+                try:
+                    shutil.rmtree(record_dir)
+                    print(f"成功删除记录文件夹: {record_dir}")
+                except Exception as e:
+                    print(f"删除记录文件夹失败: {record_dir}, 错误: {str(e)}")
+            
+            # 检查玩家文件夹是否为空，如果为空则删除
+            player_dir = os.path.join(settings.MEDIA_ROOT, 'records', player_id)
+            if os.path.exists(player_dir):
+                try:
+                    # 检查文件夹是否为空
+                    if not os.listdir(player_dir):
+                        os.rmdir(player_dir)
+                        print(f"成功删除空的玩家文件夹: {player_dir}")
+                except Exception as e:
+                    print(f"删除玩家文件夹失败: {player_dir}, 错误: {str(e)}")
+        
+        return result

@@ -52,15 +52,31 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class InvitationCodeSerializer(serializers.ModelSerializer):
     """邀请码序列化器"""
-    created_by_username = serializers.CharField(source='created_by.username', read_only=True)
-    used_by_username = serializers.CharField(source='used_by.username', read_only=True)
+    created_by = serializers.SerializerMethodField()
+    used_by = serializers.SerializerMethodField()
     
     class Meta:
         model = InvitationCode
-        fields = ['code', 'created_by_username', 'used_by_username', 
+        fields = ['id', 'code', 'created_by', 'used_by', 
                  'is_used', 'created_at', 'used_at', 'note']
-        read_only_fields = ['code', 'created_by_username', 'used_by_username', 
+        read_only_fields = ['id', 'code', 'created_by', 'used_by', 
                           'is_used', 'created_at', 'used_at']
+    
+    def get_created_by(self, obj):
+        if obj.created_by:
+            return {
+                'uid': obj.created_by.uid,
+                'username': obj.created_by.username
+            }
+        return None
+    
+    def get_used_by(self, obj):
+        if obj.used_by:
+            return {
+                'uid': obj.used_by.uid,
+                'username': obj.used_by.username
+            }
+        return None
 
 class CreateInvitationCodeSerializer(serializers.ModelSerializer):
     """创建邀请码序列化器"""

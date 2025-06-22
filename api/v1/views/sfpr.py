@@ -77,10 +77,11 @@ class PlayerViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        queryset = self.get_queryset().filter(nickname__icontains=nickname)
+        # 使用精确查询而不是模糊查询
+        queryset = self.get_queryset().filter(nickname=nickname)
         
         if game_id:
-            queryset = queryset.filter(game_id__icontains=game_id)
+            queryset = queryset.filter(game_id=game_id)
         
         if server_id:
             queryset = queryset.filter(server=server_id)

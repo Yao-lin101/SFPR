@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "=== Starting StillAlive Application ==="
+echo "=== Starting CSList Application ==="
 echo "Environment: $DJANGO_SETTINGS_MODULE"
 echo "Database Host: $DB_HOST:$DB_PORT"
 echo "Redis Host: $REDIS_HOST:6379"

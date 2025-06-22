@@ -9,10 +9,8 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',') + [
     'web',
     'web:8000',
-    '43.138.180.23',
-    'ineed.asia',
-    'www.ineed.asia',
-    'alive.ineed.asia'
+    'cslist.ineed.asia',
+    'www.cslist.ineed.asia'
 ]
 
 # CORS settings

@@ -7,22 +7,33 @@ services:
     restart: unless-stopped
     command: gunicorn config.wsgi:application --config=/app/gunicorn.conf.py --worker-class=sync
     volumes:
-      - .:/app
       - static_volume:/app/staticfiles
-      - media_volume:/app/media
+      - /www/wwwroot/cslist/media:/app/media
       - ./logs:/app/logs
     expose:
       - 8000
-    env_file:
-      - .env
     environment:
-      - REDIS_URL=redis://redis:6379/1
-      - REDIS_HOST=redis
+      - DJANGO_SETTINGS_MODULE=config.settings.production
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+      - ALLOWED_HOSTS=cslist.ineed.asia,www.cslist.ineed.asia
+      - DB_NAME=${DB_NAME}
+      - DB_USER=postgres
+      - DB_PASSWORD=${DB_PASSWORD}
       - DB_HOST=db
       - DB_PORT=5432
+      - REDIS_URL=redis://redis:6379/1
+      - REDIS_HOST=redis
       - DATABASE_URL=postgres://postgres:${DB_PASSWORD}@db:5432/${DB_NAME}
       - CELERY_BROKER_URL=redis://redis:6379/2
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_HOST_USER=${EMAIL_HOST_USER}
+      - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
+      - EMAIL_USE_TLS=True
+      - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
+      - MEDIA_URL=https://cslist.ineed.asia/media/
+      - REQUIRE_INVITATION_CODE=${REQUIRE_INVITATION_CODE:-false}
     depends_on:
       - db
       - redis
@@ -36,12 +47,12 @@ services:
     user: celery
     command: celery -A config worker --loglevel=INFO
     volumes:
-      - .:/app
       - ./logs/celery:/app/logs/celery
-    env_file:
-      - .env
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings.production
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+      - DB_NAME=${DB_NAME}
+      - DB_PASSWORD=${DB_PASSWORD}
       - DB_HOST=db
       - REDIS_HOST=redis
       - CELERY_BROKER_URL=redis://redis:6379/2
@@ -59,13 +70,13 @@ services:
     user: celery
     command: celery -A config beat --loglevel=INFO --schedule=/app/celerybeat-data/celerybeat-schedule
     volumes:
-      - .:/app
       - ./logs/celery:/app/logs/celery
       - celerybeat_data:/app/celerybeat-data
-    env_file:
-      - .env
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings.production
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+      - DB_NAME=${DB_NAME}
+      - DB_PASSWORD=${DB_PASSWORD}
       - DB_HOST=db
       - REDIS_HOST=redis
       - CELERY_BROKER_URL=redis://redis:6379/2
@@ -82,8 +93,6 @@ services:
     restart: unless-stopped
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
     environment:
       - POSTGRES_DB=${DB_NAME}
       - POSTGRES_USER=postgres
@@ -100,6 +109,8 @@ services:
     networks:
       - cslist_network
 
+
+
 volumes:
   postgres_data:
     name: cslist_postgres_data
@@ -107,14 +118,9 @@ volumes:
     name: cslist_redis_data
   static_volume:
     name: cslist_static_volume
-    external: true
-  media_volume:
-    name: cslist_media_volume
-    external: true
   celerybeat_data:
     name: cslist_celerybeat_data
 
 networks:
   cslist_network:
-    name: cslist_network
-    external: true 
+    name: cslist_network 

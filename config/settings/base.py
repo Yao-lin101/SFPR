@@ -201,5 +201,10 @@ CELERY_TASK_RETRY_POLICY = {
     'max_retries': 3,
     'interval_start': 0,
     'interval_step': 0.2,
-    'interval_max': 0.5,
+    'interval_max': 0.2,
 }
+
+# Features Configuration
+# ------------------------------------------------------------------------------
+# 邀请码功能开关
+REQUIRE_INVITATION_CODE = os.environ.get('REQUIRE_INVITATION_CODE', 'True').lower() == 'true'

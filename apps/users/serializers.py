@@ -74,11 +74,21 @@ class EmailRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(required=True, write_only=True, min_length=6,
                                    style={'input_type': 'password'})
     verify_code = serializers.CharField(required=True, write_only=True)
-    invitation_code = serializers.CharField(required=True, write_only=True)
+    invitation_code = serializers.CharField(required=False, write_only=True, allow_blank=True)
 
     class Meta:
         model = User
         fields = ['email', 'password', 'verify_code', 'invitation_code']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 根据配置决定邀请码字段是否必需
+        if settings.REQUIRE_INVITATION_CODE:
+            self.fields['invitation_code'].required = True
+            self.fields['invitation_code'].allow_blank = False
+        else:
+            self.fields['invitation_code'].required = False
+            self.fields['invitation_code'].allow_blank = True
 
     def validate_email(self, value):
         """验证邮箱是否已被注册"""
@@ -97,6 +107,14 @@ class EmailRegisterSerializer(serializers.ModelSerializer):
 
     def validate_invitation_code(self, value):
         """验证邀请码"""
+        # 如果不需要邀请码，直接返回None
+        if not settings.REQUIRE_INVITATION_CODE:
+            return None
+            
+        # 如果需要邀请码但没有提供
+        if not value:
+            raise serializers.ValidationError("邀请码不能为空")
+            
         try:
             invitation = InvitationCode.objects.get(code=value)
             if not invitation.is_valid:
@@ -109,7 +127,7 @@ class EmailRegisterSerializer(serializers.ModelSerializer):
         """创建用户"""
         email = validated_data['email']
         password = validated_data['password']
-        invitation = validated_data['invitation_code']
+        invitation = validated_data.get('invitation_code')
         
         # 创建用户
         user = User.objects.create_user(
@@ -118,8 +136,9 @@ class EmailRegisterSerializer(serializers.ModelSerializer):
             is_email_verified=True
         )
         
-        # 使用邀请码
-        invitation.use(user)
+        # 如果有邀请码，使用它
+        if invitation:
+            invitation.use(user)
         
         return user
 

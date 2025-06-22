@@ -781,6 +781,31 @@ class UserViewSet(viewsets.GenericViewSet):
         serializer = InvitationCodeSerializer(page, many=True)
         return self.get_paginated_response(serializer.data)
 
+    @swagger_auto_schema(
+        operation_summary="获取系统配置",
+        operation_description="获取系统配置信息，如邀请码是否必需",
+        responses={
+            200: openapi.Response(
+                description="系统配置信息",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'require_invitation_code': openapi.Schema(
+                            type=openapi.TYPE_BOOLEAN,
+                            description="是否需要邀请码"
+                        )
+                    }
+                )
+            )
+        }
+    )
+    @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny])
+    def config(self, request):
+        """获取系统配置"""
+        return Response({
+            'require_invitation_code': settings.REQUIRE_INVITATION_CODE
+        })
+
 class PrivacyPolicyView(TemplateView):
     template_name = 'users/privacy_policy.html'
     permission_classes = [AllowAny]
